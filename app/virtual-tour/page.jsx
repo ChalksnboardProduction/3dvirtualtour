@@ -19,7 +19,7 @@ const SCENES = [
     id: "lobby",
     name: "Lobby",
     caption: "Lobby Area - Saplings",
-    panorama: "/tours/lobby.jpg",
+    panorama: "/tours/ab.jpg",
     links: [
       {
         targetId: "assembly",
