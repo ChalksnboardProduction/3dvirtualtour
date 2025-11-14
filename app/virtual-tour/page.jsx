@@ -12,88 +12,61 @@ const ZOOM_LEVELS = {
   speed: "1rpm",
 };
 
-const SCENES = [
-  {
-    id: "lobby",
-    name: "Lobby",
-    caption: "Lobby Area - Saplings",
-    panorama: "/tours/ab.jpg",
-    links: [
-      {
-        targetId: "assembly",
-        yaw: 45,
-        pitch: 2,
-        label: "Go to Assembly Area",
-      },
-      {
-        targetId: "hall",
-        yaw: 190,
-        pitch: -1,
-        label: "Go to Auditorium",
-      },
-    ],
-  },
-  {
-    id: "assembly",
-    name: "Assembly Area",
-    caption: "Assembly Area - Saplings",
-    panorama: "/tours/assembly.jpg",
-    links: [
-      {
-        targetId: "lobby",
-        yaw: -135,
-        pitch: 0,
-        label: "Back to Lobby",
-      },
-      {
-        targetId: "hostel",
-        yaw: 35,
-        pitch: -3,
-        label: "Go to Hostel",
-      },
-    ],
-  },
-  {
-    id: "hostel",
-    name: "Hostel",
-    caption: "Hostel - Saplings",
-    panorama: "/tours/hostel.jpg",
-    links: [
-      {
-        targetId: "assembly",
-        yaw: 210,
-        pitch: 1,
-        label: "Back to Assembly Area",
-      },
-      {
-        targetId: "hall",
-        yaw: -10,
-        pitch: -2,
-        label: "Go to Auditorium",
-      },
-    ],
-  },
-  {
-    id: "hall",
-    name: "Auditorium",
-    caption: "Auditorium Hall - Saplings",
-    panorama: "/tours/hall.jpg",
-    links: [
-      {
-        targetId: "lobby",
-        yaw: 5,
-        pitch: -4,
-        label: "Back to Lobby",
-      },
-      {
-        targetId: "hostel",
-        yaw: 160,
-        pitch: 0,
-        label: "Go to Hostel",
-      },
-    ],
-  },
+const CONVERTED_IMAGES = [
+  "IMG_20251015_170923_00_034.jpg",
+  "IMG_20251015_171004_00_035.jpg",
+  "IMG_20251015_171046_00_036.jpg",
+  "IMG_20251015_171141_00_037.jpg",
+  "IMG_20251015_171243_00_038.jpg",
+  "IMG_20251015_173920_00_039.jpg",
+  "IMG_20251015_174016_00_040.jpg",
+  "IMG_20251015_174227_00_042.jpg",
+  "IMG_20251015_174314_00_043.jpg",
+  "IMG_20251015_174441_00_044.jpg",
+  "IMG_20251015_174532_00_045.jpg",
+  "IMG_20251015_174600_00_046.jpg",
+  "IMG_20251015_174720_00_047.jpg",
+  "IMG_20251015_174803_00_048.jpg",
+  "IMG_20251015_174836_00_049.jpg",
+  "IMG_20251015_174901_00_050.jpg",
+  "IMG_20251015_174945_00_051.jpg",
+  "IMG_20251015_175025_00_052.jpg",
+  "IMG_20251015_175046_00_053.jpg",
+  "IMG_20251015_175211_00_054.jpg",
 ];
+
+const getSceneIdFromIndex = (index) => `scene-${index + 1}`;
+
+const SCENES = CONVERTED_IMAGES.map((filename, index, arr) => {
+  const prevIndex = (index - 1 + arr.length) % arr.length;
+  const nextIndex = (index + 1) % arr.length;
+
+  const links =
+    arr.length > 1
+      ? [
+          {
+            targetId: getSceneIdFromIndex(prevIndex),
+            yaw: -135,
+            pitch: 0,
+            label: "Previous Scene",
+          },
+          {
+            targetId: getSceneIdFromIndex(nextIndex),
+            yaw: 45,
+            pitch: 0,
+            label: "Next Scene",
+          },
+        ]
+      : [];
+
+  return {
+    id: getSceneIdFromIndex(index),
+    name: `Scene ${index + 1}`,
+    caption: `Saplings Scene ${index + 1}`,
+    panorama: `/converted/${filename}`,
+    links,
+  };
+});
 
 const getSceneById = (id) => SCENES.find((scene) => scene.id === id);
 
