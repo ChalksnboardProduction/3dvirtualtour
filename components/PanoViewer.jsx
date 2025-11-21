@@ -1,129 +1,129 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import "photo-sphere-viewer/dist/photo-sphere-viewer.css";
-import "photo-sphere-viewer/dist/plugins/markers.css";
 
-const toRadians = (degrees) => (degrees * Math.PI) / 180;
-
-const buildMarker = (hotspot, index) => {
-  const isScene = hotspot.type === "scene";
-  const markerId = `hotspot-${index}-${isScene ? hotspot.sceneId ?? "scene" : "info"}`;
-
-  return {
-    id: markerId,
-    longitude: toRadians(hotspot.yaw ?? 0),
-    latitude: toRadians(hotspot.pitch ?? 0),
-    tooltip: hotspot.text ?? "",
-    html: `<button class="psv-marker hotspot-${hotspot.type}" type="button" aria-label="${hotspot.text ?? ""}" style="background: rgba(0,0,0,0.55); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; border-radius: 999px; font-size: 12px;">${hotspot.text ?? ""}</button>`,
-    data: {
-      type: hotspot.type,
-      sceneId: hotspot.sceneId,
-    },
-  };
-};
-
-export default function PanoViewer({ imageUrl, hotspotConfig = [], navigateTo }) {
+export default function PanoViewer() {
   const containerRef = useRef(null);
-  const viewerRef = useRef(null);
-  const markersPluginRef = useRef(null);
-  const navigateToRef = useRef(navigateTo);
+  const iframeHostRef = useRef(null);
 
   useEffect(() => {
-    navigateToRef.current = navigateTo;
-  }, [navigateTo]);
+    const container = containerRef.current;
+    if (!container) return undefined;
 
-  useEffect(() => {
-    if (!containerRef.current) return undefined;
+    // ensure container covers full viewport and sits on top
+    container.style.position = "fixed";
+    container.style.top = "0";
+    container.style.left = "0";
+    container.style.width = "100%";
+    container.style.height = "100%";
+    container.style.zIndex = "2147483647"; // very high z-index
 
-    let mounted = true;
-    let cleanupListeners = () => {};
+    // create iframe element matching the user's snippet
+    const iframe = document.createElement("iframe");
+    iframe.id = "tour-embeded";
+    iframe.name = "newsaplings";
+    iframe.src = "https://tour.panoee.net/iframe/69203d985c4668953f158693";
+    iframe.setAttribute("frameBorder", "0");
+    iframe.setAttribute("width", "100%");
+    iframe.setAttribute("height", "100%");
+    iframe.setAttribute("scrolling", "no");
+    iframe.setAttribute("allowvr", "yes");
+    iframe.setAttribute("allow", "vr; xr; accelerometer; gyroscope; autoplay;");
+    iframe.setAttribute("allowFullScreen", "false");
+    iframe.setAttribute("webkitallowfullscreen", "false");
+    iframe.setAttribute("mozallowfullscreen", "false");
+    iframe.setAttribute("loading", "eager");
 
-    (async () => {
+    // append into host (don't remove other React children)
+    const host = iframeHostRef.current ?? container;
+    const existing = host.querySelector("#tour-embeded");
+    if (existing) {
       try {
-        const viewerModule = await import("photo-sphere-viewer");
-        const markersModule = await import("photo-sphere-viewer/dist/plugins/markers");
-        if (!mounted || !containerRef.current) return;
+        host.removeChild(existing);
+      } catch {}
+    }
+    host.appendChild(iframe);
 
-        const ViewerLib = viewerModule?.Viewer ?? viewerModule?.default ?? viewerModule;
-        const MarkersPluginLib = markersModule?.MarkersPlugin ?? markersModule?.default ?? markersModule;
-
-        const viewer = new ViewerLib({
-          container: containerRef.current,
-          panorama: imageUrl,
-          defaultZoomLvl: 40,
-          navbar: ["zoom", "fullscreen"],
-          plugins: [[MarkersPluginLib, { markers: [] }]],
-        });
-
-        const markersPlugin = viewer.getPlugin(MarkersPluginLib);
-        viewerRef.current = viewer;
-        markersPluginRef.current = markersPlugin;
-
-        const handleMarkerSelect = (event, marker) => {
-          const data = marker?.config?.data;
-          if (data?.type === "scene" && data?.sceneId) {
-            navigateToRef.current?.(data.sceneId);
-          }
-        };
-
-        markersPlugin.on("select-marker", handleMarkerSelect);
-        cleanupListeners = () => {
-          try {
-            markersPlugin.off("select-marker", handleMarkerSelect);
-          } catch {
-            // ignore
-          }
-        };
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to initialize PanoViewer:", error);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      cleanupListeners();
+    // forward devicemotion to iframe
+    const handleDeviceMotion = (e) => {
+      const frame = document.getElementById("tour-embeded");
+      if (!frame || !frame.contentWindow) return;
       try {
-        viewerRef.current?.destroy();
-      } catch {
+        frame.contentWindow.postMessage(
+          {
+            type: "devicemotion",
+            deviceMotionEvent: {
+              acceleration: {
+                x: e.acceleration?.x ?? null,
+                y: e.acceleration?.y ?? null,
+                z: e.acceleration?.z ?? null,
+              },
+              accelerationIncludingGravity: {
+                x: e.accelerationIncludingGravity?.x ?? null,
+                y: e.accelerationIncludingGravity?.y ?? null,
+                z: e.accelerationIncludingGravity?.z ?? null,
+              },
+              rotationRate: {
+                alpha: e.rotationRate?.alpha ?? null,
+                beta: e.rotationRate?.beta ?? null,
+                gamma: e.rotationRate?.gamma ?? null,
+              },
+              interval: e.interval,
+              timeStamp: e.timeStamp,
+            },
+          },
+          "*"
+        );
+      } catch (err) {
         // ignore
       }
-      viewerRef.current = null;
-      markersPluginRef.current = null;
     };
-  }, [imageUrl]);
 
-  useEffect(() => {
-    if (!viewerRef.current || !imageUrl) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        await viewerRef.current.setPanorama(imageUrl, {
-          transition: false,
-          showLoader: true,
-        });
-      } catch (error) {
-        if (!cancelled) {
-          // eslint-disable-next-line no-console
-          console.error("Failed to set panorama:", error);
-        }
-      }
-    })();
+    window.addEventListener("devicemotion", handleDeviceMotion);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("devicemotion", handleDeviceMotion);
+      try {
+        const hostNode = iframeHostRef.current ?? container;
+        const f = hostNode.querySelector("#tour-embeded");
+        if (f) hostNode.removeChild(f);
+      } catch (e) {
+        // ignore
+      }
+      // remove container fullscreen styles
+      try {
+        container.style.position = null;
+        container.style.top = null;
+        container.style.left = null;
+        container.style.width = null;
+        container.style.height = null;
+        container.style.zIndex = null;
+      } catch {}
     };
-  }, [imageUrl]);
+  }, []);
 
-  useEffect(() => {
-    if (!markersPluginRef.current) return;
-    const markers = hotspotConfig.map((hotspot, index) => buildMarker(hotspot, index));
-    markersPluginRef.current.setMarkers(markers);
-  }, [hotspotConfig]);
-
-  return <div ref={containerRef} className="h-[70vh] w-full" />;
+  return (
+    <div ref={containerRef} className="w-full">
+      <div ref={iframeHostRef} style={{ width: "100%", height: "100%" }} />
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "0px",
+          bottom: "2px",
+          background: "rgba(0, 0, 0, 1)",
+          color: "#fff",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          fontSize: "14px",
+          fontWeight: 600,
+          zIndex: 2147483648,
+          pointerEvents: "none",
+        }}
+      >
+        chalksnboard
+      </div>
+    </div>
+  );
 }
 
